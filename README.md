@@ -1,5 +1,5 @@
 # DiscSMP (minimal)
-KNICKS IN 5
+KNICKS IN 5 (lets go)
 Build
 
 ```bash
