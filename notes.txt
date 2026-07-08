@@ -1,25 +1,57 @@
-10 unique music discs scattered around different biomes hidden in unique structures
-Custom structures?
-Only 10 exist
+We are working on creating a minecraft server SMP for us and our friends. Using a Gradle plugin. The title is the Disc SMP. This is the minecraft server that we are going to make, the concept is that there are 10 unique music discs (not minecraft ones) that are all around the map, and when you gain  a certain one, it gives you a minecraft ability (strength 2 example) and other abilities for each disc) and when you get all ten discs, you can craft a weapon based on vanilla minecraft weapons but stronger. You have to play all ten music discs in a jukebox before you get to choose the weapon. op enchant (beyond typical game limits) ( for example could be sharpness seven, riptide 4, density 7, wind burst 4.)  More detail on how these systems work is as follows.
+
+World border so its not super far out (15k x 15k)
+
+discs scattered around different biomes hidden in vanilla minecraft structures
+Only 10 exist in the entire world, unique items like infinity stones
+You can’t get discs thru regular methods, but we will be using the minecraft disc names so we dont have to make custom assets.
 So if someone gets it, they have it
 If it falls in the void / gets destroyed it comes back and you can craft it again
 But they need to be crafted
-You need to bring the materials to the structure
-Hard crafting recipes
+Inside random structures
+So you go to lets say a desert temple, but its a special desert temple
+Plays like an omen or something
+Tells you what items you need
+Dramatic reveal, text, colors in the world lighting change
+When a disc enters your possession, another animation, reveals powers, some like flavor text on what it does dramatic
+So You need to bring the materials to the structure
+Hard crafting recipes for each one, tailored to the disk
 Skulk catalyst
-Custom achievement pops up when you get an achievement
-
-If you have 10 discs in your possession
+Custom achievement pops up when you get a disk
+Each disc gives you its own unique ability when holding
+Minecraft potion effects (Very Strong)
+DISC BREAKDOWN (they will need names, themes, color etc.)
+Disc 1 - Pigstep (Beseker) (strength 2) - in one Bastion
+Disc 2 - Cat (Acrobat) (jump boost 3) - Jungle temple
+Disc 3 - Chirp (Vampire) (regeneration 2) - in one Woodland mansion
+Disc 4 - ___ (Juggernaut) (resistance 2 and health boost 2) - in one Desert temple
+Disc 5 - _____ (Phoenix) (fire resistance) - in one Fortress
+Disc 6  -  11 - (Pain) (weakness 3 + blindness 1 ) - in one Witch Hut
+Disc 7 - ___ (Posiedon) (dolphins grace 2 + water breathing) - in one Guardian temple
+Disc 8 - _____ (Mine + Craft) (haste 3) - in one Mineshaft
+Disc 9 - Tears (Phantom) (speed 2 and invis) - in one Ancient City
+Disc 10 - ____ (Gambling) (random effect Level 5) (this one every time it gets to a new player, it changes. Roll dice animation (like it cycles thru options then lands on one)) - Trial Chambers
+If you have all 	10 discs in your possession
 If you do the ritual (play all the discs in some setup)
 All the discs do some animation or something (float up and combine) and then they get destroyed (you have to craft them again in the structures)
 You get an OP weapon
-By OP we mean like beyond normal game enchants
+By OP we mean like way beyond normal game enchants (super OP, Sharp 7 as an example)
 Sword, Axe, Bow, Mace, Spear, Trident
 Once one is taken, it’s off the table
 You get to choose the name
 It can’t get destroyed - but we gotta figure out how this is true
 Rules
 You cant put discs inside ender chests
-2 totems per season
+You can only use 2 totems ever (can only hold up to 2, and after you use 2, they dont work for you anymore - like you can hold it, but it doesn’t do anything (dont tell them tho)
 Netherite armor removed 
-No x-ray, no cheats, no chunk banning, no lag machines, etc.
+No netherite tools/weapons (except pickaxe)
+Limit of 5 maces in the world
+No x-ray, no cheats, no chunk banning, no lag machines, etc. (this doesnt need code this is just a rule)
+
+The server itself
+Our custom plugin for the disc SMP
+Geyser mod - crossplay w bedrock
+Simple voice chat
+
+Hosting
+Apex hosting - $15 a month
