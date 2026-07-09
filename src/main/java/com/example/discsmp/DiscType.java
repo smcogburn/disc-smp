@@ -21,7 +21,7 @@ public enum DiscType {
             Material.MUSIC_DISC_PIGSTEP, Sound.MUSIC_DISC_PIGSTEP,
             "a lone Bastion", "bastion_remnant",
             "Forged in piglin warfields, it beats like a war drum.",
-            "Strength II while held",
+            "Strength II while carried",
             recipe(Material.GOLD_BLOCK, 16, Material.NETHERITE_BLOCK, 1,
                     Material.BLAZE_ROD, 8, Material.CRYING_OBSIDIAN, 8),
             effects(effect(PotionEffectType.STRENGTH, 1))),
@@ -30,7 +30,7 @@ public enum DiscType {
             Material.MUSIC_DISC_CAT, Sound.MUSIC_DISC_CAT,
             "a lost Jungle Temple", "jungle_pyramid",
             "Light as a cat's step, it never quite touches the ground.",
-            "Jump Boost III while held",
+            "Jump Boost III while carried",
             recipe(Material.MOSS_BLOCK, 32, Material.EMERALD_BLOCK, 2,
                     Material.RABBIT_FOOT, 4, Material.BAMBOO_BLOCK, 16),
             effects(effect(PotionEffectType.JUMP_BOOST, 2))),
@@ -39,7 +39,7 @@ public enum DiscType {
             Material.MUSIC_DISC_CHIRP, Sound.MUSIC_DISC_CHIRP,
             "a haunted Woodland Mansion", "mansion",
             "It hums with stolen heartbeats.",
-            "Regeneration II while held",
+            "Regeneration II while carried",
             recipe(Material.GHAST_TEAR, 8, Material.REDSTONE_BLOCK, 16,
                     Material.FERMENTED_SPIDER_EYE, 16, Material.WITHER_ROSE, 1),
             effects(effect(PotionEffectType.REGENERATION, 1))),
@@ -48,7 +48,7 @@ public enum DiscType {
             Material.MUSIC_DISC_BLOCKS, Sound.MUSIC_DISC_BLOCKS,
             "a buried Desert Temple", "desert_pyramid",
             "Heavy as a mountain, patient as the sand.",
-            "Resistance II + Health Boost II while held",
+            "Resistance II + Health Boost II while carried",
             recipe(Material.DIAMOND_BLOCK, 8, Material.OBSIDIAN, 32,
                     Material.SHULKER_SHELL, 12, Material.ENCHANTED_GOLDEN_APPLE, 4),
             effects(effect(PotionEffectType.RESISTANCE, 1), effect(PotionEffectType.HEALTH_BOOST, 1))),
@@ -57,7 +57,7 @@ public enum DiscType {
             Material.MUSIC_DISC_OTHERSIDE, Sound.MUSIC_DISC_OTHERSIDE,
             "a burning Nether Fortress", "fortress",
             "From the ashes of the other side, it rises.",
-            "Fire Resistance while held",
+            "Fire Resistance while carried",
             recipe(Material.MAGMA_BLOCK, 32, Material.BLAZE_ROD, 12,
                     Material.MAGMA_CREAM, 16, Material.GOLD_BLOCK, 8),
             effects(effect(PotionEffectType.FIRE_RESISTANCE, 0))),
@@ -75,7 +75,7 @@ public enum DiscType {
             Material.MUSIC_DISC_WAIT, Sound.MUSIC_DISC_WAIT,
             "a drowned Ocean Monument", "monument",
             "The tide answers to whoever carries it.",
-            "Dolphin's Grace II + Water Breathing while held",
+            "Dolphin's Grace II + Water Breathing while carried",
             recipe(Material.SEA_LANTERN, 16, Material.HEART_OF_THE_SEA, 1,
                     Material.TIDE_ARMOR_TRIM_SMITHING_TEMPLATE, 2, Material.SPONGE, 8),
             effects(effect(PotionEffectType.DOLPHINS_GRACE, 1), effect(PotionEffectType.WATER_BREATHING, 0))),
@@ -84,7 +84,7 @@ public enum DiscType {
             Material.MUSIC_DISC_STAL, Sound.MUSIC_DISC_STAL,
             "a forgotten Mineshaft", "mineshaft",
             "It remembers every pickaxe swing ever taken.",
-            "Haste III while held",
+            "Haste III while carried",
             recipe(Material.IRON_BLOCK, 16, Material.GOLD_BLOCK, 8,
                     Material.DIAMOND_BLOCK, 6, Material.REDSTONE_BLOCK, 16),
             effects(effect(PotionEffectType.HASTE, 2))),
@@ -93,10 +93,11 @@ public enum DiscType {
             Material.MUSIC_DISC_TEARS, Sound.MUSIC_DISC_TEARS,
             "a silent Ancient City", "ancient_city",
             "It plays a song the Warden weeps to.",
-            "Speed II + Invisibility while held",
+            "Speed II, and true invisibility (armor too) that comes and goes",
             recipe(Material.PHANTOM_MEMBRANE, 4, Material.ECHO_SHARD, 8,
                     Material.ELYTRA, 1, Material.ENDER_PEARL, 16),
-            effects(effect(PotionEffectType.SPEED, 1), effect(PotionEffectType.INVISIBILITY, 0))),
+            // invisibility is special-cased in AbilityManager: 30s on / 30s off, hides armor
+            effects(effect(PotionEffectType.SPEED, 1))),
 
     GAMBLING(10, "Gambling", "Creator", ChatColor.DARK_PURPLE,
             Material.MUSIC_DISC_CREATOR, Sound.MUSIC_DISC_CREATOR,
@@ -180,8 +181,8 @@ public enum DiscType {
     }
 
     private static PotionEffect effect(PotionEffectType type, int amplifier) {
-        // 8s duration, refreshed every 2s by the ability task; ambient = subtle particles
-        return new PotionEffect(type, 160, amplifier, true, false, true);
+        // refreshed every 2s by the ability task; no particles and no HUD icon - sneaky
+        return new PotionEffect(type, 220, amplifier, false, false, false);
     }
 
     private static List<PotionEffect> effects(PotionEffect... e) {

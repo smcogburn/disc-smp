@@ -28,12 +28,9 @@ public class DiscsCommand implements CommandExecutor {
             sender.sendMessage(t.getColor() + "   " + t.getNumber() + ". " + t.getTheme()
                     + ChatColor.GRAY + " (" + t.getSongName() + ") " + ChatColor.DARK_GRAY + "— " + state);
         }
-        if (sender instanceof Player p) {
-            int attuned = plugin.getDataStore().getAttuned(p.getUniqueId()).size();
-            sender.sendMessage("");
-            sender.sendMessage(ChatColor.GRAY + "  Songs you have attuned in a jukebox: "
-                    + ChatColor.WHITE + attuned + ChatColor.GRAY + "/10");
-        }
+        sender.sendMessage("");
+        sender.sendMessage(ChatColor.DARK_GRAY + "  " + ChatColor.ITALIC
+                + "The rite: ten discs, ten jukeboxes, side by side, all singing at once.");
         sender.sendMessage("");
         return true;
     }

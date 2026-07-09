@@ -506,7 +506,7 @@ public class ShrineManager {
                         12, 0.3, 0.1, 0.3, 0.02);
                 if (step >= 6) {
                     cancel();
-                    world.spawnParticle(Particle.FLASH, center, 2);
+                    flash(world, center, 2);
                     if (p.isOnline()) p.resetPlayerTime();
                 }
             }
@@ -550,6 +550,15 @@ public class ShrineManager {
         PlayerInventory inv = p.getInventory();
         for (Map.Entry<Material, Integer> e : type.getRecipe().entrySet()) {
             inv.removeItem(new ItemStack(e.getKey(), e.getValue()));
+        }
+    }
+
+    /** FLASH requires a Color on newer Paper builds; spawn it with whichever data it wants. */
+    public static void flash(World world, Location loc, int count) {
+        if (Particle.FLASH.getDataType() == org.bukkit.Color.class) {
+            world.spawnParticle(Particle.FLASH, loc, count, 0, 0, 0, 0, org.bukkit.Color.WHITE);
+        } else {
+            world.spawnParticle(Particle.FLASH, loc, count);
         }
     }
 

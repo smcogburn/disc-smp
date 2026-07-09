@@ -39,7 +39,10 @@ The world border (15,000 × 15,000 overworld, scaled nether) is applied automati
 
 ## The ten discs
 
-| # | Theme | Song | Power while held | Shrine |
+Disc powers are active while the disc is **anywhere in your inventory** — no need to hold
+it — and they show **no potion icons or particles**, so nobody can tell what you're running.
+
+| # | Theme | Song | Power while carried | Shrine |
 |---|-------|------|------------------|--------|
 | 1 | Berserker | Pigstep | Strength II | Bastion |
 | 2 | Acrobat | Cat | Jump Boost III | Jungle Temple |
@@ -49,7 +52,7 @@ The world border (15,000 × 15,000 overworld, scaled nether) is applied automati
 | 6 | Pain | 11 | Curses nearby enemies: Weakness III + Blindness | Witch Hut |
 | 7 | Poseidon | Wait | Dolphin's Grace II + Water Breathing | Ocean Monument |
 | 8 | Mine & Craft | Stal | Haste III | Mineshaft |
-| 9 | Phantom | Tears | Speed II + Invisibility | Ancient City |
+| 9 | Phantom | Tears | Speed II always; true invisibility 30s on / 30s off — armor hidden too, only your held item shows | Ancient City |
 | 10 | Gambling | Creator | Random Level V power, rerolled per owner (dice-roll animation) | Trial Chambers |
 
 How they work:
@@ -66,11 +69,14 @@ How they work:
 
 ## The ritual of the ten songs
 
-1. Play each of the ten discs in a jukebox at least once (attunement, tracked per player).
-2. With **all ten discs in your inventory**, sneak-right-click a jukebox.
-3. The discs rise, spiral together, and are destroyed — they return to their shrines,
-   craftable again.
-4. Choose one of six weapons (each claimable **once, ever**) and type its name in chat:
+1. Set up **ten jukeboxes** close together (all within ~32 blocks).
+2. Play **all ten discs in them at the same time**. One disc alone does nothing; songs that
+   have ended don't count. When the tenth song joins the chorus, the ritual begins on its own.
+3. The discs rise from their jukeboxes, spiral into a single point of light, and are
+   destroyed — they return to their shrines, craftable again.
+4. Whoever dropped in the tenth disc chooses one of six weapons (each claimable **once,
+   ever**) and types its name in chat. The weapon then **descends from the heavens** at the
+   heart of the ritual:
 
    Sword (Sharpness VII…), Axe, Bow (Power VII, Infinity…), Mace (Density VII, Wind Burst IV…),
    Spear (Impaling VII, Loyalty IV, Channeling), Trident (Riptide IV…).

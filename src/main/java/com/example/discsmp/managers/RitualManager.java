@@ -13,6 +13,8 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.World;
+import org.bukkit.block.Block;
+import org.bukkit.block.Jukebox;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -28,29 +30,35 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * The ritual of the ten songs: attune every disc by playing it in a jukebox,
- * then bring all ten to a jukebox and sneak-right-click to begin. The discs
- * rise, combine, and are destroyed - and one weapon of legend may be claimed.
+ * The Ritual of the Ten Songs: all ten discs must play in ten jukeboxes AT THE
+ * SAME TIME, close together. One disc alone does nothing. When the tenth song
+ * starts, the discs rise from their jukeboxes, spiral into a single point of
+ * light, and are destroyed - then a weapon of legend descends from the heavens.
  */
 public class RitualManager implements Listener {
 
     public static NamespacedKey WEAPON_KEY;
 
     private static final int[] GUI_SLOTS = {10, 11, 12, 14, 15, 16};
+    /** All ten jukeboxes must be within this many blocks of the last one. */
+    private static final double MAX_SPREAD = 32;
 
     private final DiscSMPPlugin plugin;
     private final DataStore data;
+    /** Where each disc was last heard playing. Verified against real block state. */
+    private final Map<DiscType, Location> playing = new ConcurrentHashMap<>();
+    /** Where the ritual completed, so the weapon can descend there. */
+    private final Map<UUID, Location> ritualSites = new ConcurrentHashMap<>();
     /** Players who clicked a weapon and must now type its name in chat. */
     private final Map<UUID, WeaponType> pendingName = new ConcurrentHashMap<>();
+    private boolean ritualRunning = false;
 
     public RitualManager(DiscSMPPlugin plugin, DataStore data) {
         this.plugin = plugin;
@@ -58,85 +66,117 @@ public class RitualManager implements Listener {
         WEAPON_KEY = new NamespacedKey(plugin, "ritual_weapon");
     }
 
-    // ---- Attunement ----
+    // ---- Tracking which discs are singing ----
 
-    /** Called when a player puts one of the discs into a jukebox. */
-    public void onDiscPlayed(Player p, DiscType type) {
-        if (data.addAttuned(p.getUniqueId(), type)) {
-            int count = data.getAttuned(p.getUniqueId()).size();
-            p.playSound(p.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_RESONATE, 1.0f, 1.2f);
-            p.sendMessage(type.getColor() + "♫ " + ChatColor.GRAY + "The jukebox drinks in the song of the "
-                    + type.getColor() + type.getTheme() + ChatColor.GRAY + ". "
-                    + ChatColor.WHITE + count + ChatColor.GRAY + "/10 songs attuned.");
-            if (count == 10) {
-                p.sendMessage(ChatColor.DARK_PURPLE + "" + ChatColor.BOLD
-                        + "All ten songs echo within you. "
-                        + ChatColor.RESET + ChatColor.GRAY
-                        + "Bring the ten discs to a jukebox and sneak-right-click it to begin the ritual.");
+    /** Called right after a player puts one of the discs into a jukebox. */
+    public void onDiscInserted(Player p, DiscType type, Block jukeboxBlock) {
+        // one tick later the record is actually inside the jukebox
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            if (jukeboxBlock.getType() != Material.JUKEBOX) return;
+            Jukebox state = (Jukebox) jukeboxBlock.getState();
+            if (DiscItems.getDiscType(state.getRecord()) != type) return;
+            playing.put(type, jukeboxBlock.getLocation());
+
+            Map<DiscType, Location> chorus = validPlaying(jukeboxBlock.getLocation());
+            int count = chorus.size();
+            if (count > 1) {
+                p.sendActionBar(type.getColor() + "♫ " + ChatColor.GRAY + count
+                        + "/10 songs sing together");
             }
+            if (count == DiscType.values().length && !ritualRunning) {
+                startRitual(p, chorus);
+            } else if (count < playingCount() && playingCount() == DiscType.values().length) {
+                p.sendMessage(ChatColor.GRAY
+                        + "All ten songs play, but they are too far apart to weave together.");
+            }
+        });
+    }
+
+    /** A jukebox with a record was clicked (eject) or broken - forget its song. */
+    public void onJukeboxDisturbed(Location loc) {
+        playing.values().removeIf(l -> l.getWorld().equals(loc.getWorld())
+                && l.getBlockX() == loc.getBlockX()
+                && l.getBlockY() == loc.getBlockY()
+                && l.getBlockZ() == loc.getBlockZ());
+    }
+
+    private int playingCount() {
+        return validPlaying(null).size();
+    }
+
+    /**
+     * Re-checks every tracked jukebox against the real world: still a jukebox,
+     * still holds its disc, still audibly playing. If {@code near} is given,
+     * only jukeboxes within MAX_SPREAD of it count toward the chorus.
+     */
+    private Map<DiscType, Location> validPlaying(Location near) {
+        Map<DiscType, Location> valid = new EnumMap<>(DiscType.class);
+        for (Map.Entry<DiscType, Location> e : new EnumMap<>(playing).entrySet()) {
+            Location loc = e.getValue();
+            Block b = loc.getBlock();
+            if (b.getType() != Material.JUKEBOX) {
+                playing.remove(e.getKey());
+                continue;
+            }
+            Jukebox state = (Jukebox) b.getState();
+            if (DiscItems.getDiscType(state.getRecord()) != e.getKey() || !state.isPlaying()) {
+                playing.remove(e.getKey());
+                continue;
+            }
+            if (near != null && (!loc.getWorld().equals(near.getWorld())
+                    || loc.distanceSquared(near) > MAX_SPREAD * MAX_SPREAD)) {
+                continue; // playing, but not part of this chorus
+            }
+            valid.put(e.getKey(), loc);
         }
+        return valid;
+    }
+
+    /** Sneak-right-click on a jukebox: resume a pending choice, or explain the rite. */
+    public void handleSneakClick(Player p) {
+        if (data.mayChooseWeapon(p.getUniqueId())) {
+            openWeaponGui(p);
+            return;
+        }
+        p.sendMessage(ChatColor.DARK_PURPLE + "♫ " + ChatColor.GRAY
+                + "The rite demands all ten songs at once: ten discs, ten jukeboxes, "
+                + "side by side, all playing together.");
     }
 
     // ---- The ritual ----
 
-    /** Sneak-right-click on a jukebox. Returns true if the interaction was consumed. */
-    public boolean tryStartRitual(Player p, Location jukebox) {
-        if (data.mayChooseWeapon(p.getUniqueId())) {
-            // completed the ritual earlier (e.g. before a restart) - resume the choice
-            openWeaponGui(p);
-            return true;
-        }
-        Set<DiscType> attuned = data.getAttuned(p.getUniqueId());
-        if (attuned.size() < DiscType.values().length) {
-            p.sendMessage(ChatColor.GRAY + "The jukebox hums faintly. " + ChatColor.WHITE
-                    + attuned.size() + ChatColor.GRAY
-                    + "/10 songs attuned - every disc must be played in a jukebox first.");
-            return true;
-        }
+    private void startRitual(Player p, Map<DiscType, Location> chorus) {
+        ritualRunning = true;
+        playing.clear();
 
-        // All ten discs must physically be in the player's inventory.
-        Map<DiscType, ItemStack> found = new EnumMap<>(DiscType.class);
-        for (ItemStack item : p.getInventory().getContents()) {
-            DiscType t = DiscItems.getDiscType(item);
-            if (t != null) found.putIfAbsent(t, item);
+        // centroid of the ten jukeboxes = the heart of the ritual
+        World world = p.getWorld();
+        double sx = 0, sy = 0, sz = 0;
+        for (Location loc : chorus.values()) {
+            sx += loc.getX();
+            sy += loc.getY();
+            sz += loc.getZ();
         }
-        if (found.size() < DiscType.values().length) {
-            p.sendMessage(ChatColor.GRAY + "You carry " + ChatColor.WHITE + found.size()
-                    + ChatColor.GRAY + "/10 discs. The ritual demands all ten in your possession.");
-            return true;
-        }
+        int n = chorus.size();
+        Location heart = new Location(world, sx / n + 0.5, sy / n + 1.0, sz / n + 0.5);
 
-        // Consume the discs; they return to their shrines, craftable again.
-        for (ItemStack item : found.values()) {
-            item.setAmount(0);
-        }
-        for (DiscType t : DiscType.values()) {
-            data.setUnclaimed(t);
-            plugin.getShrineManager().updateDisplay(t);
-        }
-        if (data.getGambleOwner() != null) data.setGamble(null, null);
-        data.clearAttuned(p.getUniqueId());
-
-        playRitualAnimation(p, jukebox);
-        return true;
-    }
-
-    private void playRitualAnimation(Player p, Location jukebox) {
-        World world = jukebox.getWorld();
-        Location center = jukebox.clone().add(0.5, 1.2, 0.5);
-
-        Bukkit.broadcastMessage(ChatColor.DARK_PURPLE + "" + ChatColor.BOLD + "♫ " + p.getName()
+        Bukkit.broadcastMessage(ChatColor.DARK_PURPLE + "" + ChatColor.BOLD
+                + "♫ Ten songs sing as one. " + p.getName()
                 + " has begun the Ritual of the Ten Songs...");
-        world.playSound(center, Sound.BLOCK_BEACON_ACTIVATE, 1.0f, 0.6f);
+        world.playSound(heart, Sound.BLOCK_BEACON_ACTIVATE, 1.0f, 0.6f);
         p.setPlayerTime(18000, false);
 
-        // The ten discs rise in a circle and spiral into a single point of light.
+        // pull the discs out of their jukeboxes as floating, glowing items
         List<Item> risen = new ArrayList<>();
-        DiscType[] types = DiscType.values();
-        for (int i = 0; i < types.length; i++) {
-            double angle = 2 * Math.PI * i / types.length;
-            Location spawn = center.clone().add(Math.cos(angle) * 1.6, 0.2, Math.sin(angle) * 1.6);
-            Item item = world.dropItem(spawn, DiscItems.create(types[i]));
+        for (Map.Entry<DiscType, Location> e : chorus.entrySet()) {
+            Block b = e.getValue().getBlock();
+            if (b.getType() == Material.JUKEBOX) {
+                Jukebox state = (Jukebox) b.getState();
+                state.setRecord(null);
+                state.update();
+            }
+            Item item = world.dropItem(e.getValue().clone().add(0.5, 1.2, 0.5),
+                    DiscItems.create(e.getKey()));
             item.setGravity(false);
             item.setVelocity(new Vector(0, 0, 0));
             item.setPickupDelay(Integer.MAX_VALUE);
@@ -145,50 +185,72 @@ public class RitualManager implements Listener {
             risen.add(item);
         }
 
+        List<Location> starts = risen.stream().map(Item::getLocation).toList();
+        Location target = heart.clone().add(0, 4.0, 0);
+
         new BukkitRunnable() {
             int ticks = 0;
             @Override
             public void run() {
                 ticks += 2;
-                double progress = ticks / 100.0;
-                Location target = center.clone().add(0, 3.0, 0);
+                double progress = Math.min(1.0, ticks / 140.0);
                 for (int i = 0; i < risen.size(); i++) {
                     Item item = risen.get(i);
                     if (item.isDead()) continue;
-                    double angle = 2 * Math.PI * i / risen.size() + progress * 4 * Math.PI;
-                    double radius = 1.6 * (1.0 - progress);
-                    Location pos = center.clone().add(
-                            Math.cos(angle) * radius,
-                            0.2 + progress * 2.8,
-                            Math.sin(angle) * radius);
+                    Location s = starts.get(i);
+                    double angle = progress * 4 * Math.PI + i;
+                    double wobble = Math.sin(progress * Math.PI) * 1.2;
+                    Location pos = new Location(world,
+                            lerp(s.getX(), target.getX(), progress) + Math.cos(angle) * wobble * (1 - progress),
+                            lerp(s.getY(), target.getY(), progress),
+                            lerp(s.getZ(), target.getZ(), progress) + Math.sin(angle) * wobble * (1 - progress));
                     item.teleport(pos);
                     world.spawnParticle(Particle.END_ROD, pos, 1, 0, 0, 0, 0);
                 }
                 if (ticks % 20 == 0) {
-                    world.playSound(center, Sound.BLOCK_NOTE_BLOCK_CHIME, 1.0f, 0.5f + (float) progress);
+                    world.playSound(heart, Sound.BLOCK_NOTE_BLOCK_CHIME, 1.0f, 0.5f + (float) progress);
                 }
-                if (ticks >= 100) {
+                if (ticks >= 140) {
                     cancel();
                     risen.forEach(Item::remove);
-                    world.spawnParticle(Particle.FLASH, target, 3);
-                    world.spawnParticle(Particle.TOTEM_OF_UNDYING, target, 120, 0.8, 0.8, 0.8, 0.4);
-                    world.strikeLightningEffect(jukebox);
-                    world.playSound(center, Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 0.8f);
-                    world.playSound(center, Sound.ENTITY_ENDER_DRAGON_DEATH, 0.4f, 1.4f);
-
-                    Bukkit.broadcastMessage(ChatColor.DARK_PURPLE + "♫ The ten discs are no more. "
-                            + ChatColor.LIGHT_PURPLE + p.getName()
-                            + ChatColor.DARK_PURPLE + " may now claim a weapon of legend. "
-                            + ChatColor.GRAY + "The discs may be forged anew at their shrines.");
-
-                    data.setMayChooseWeapon(p.getUniqueId(), true);
-                    if (p.isOnline()) {
-                        p.resetPlayerTime();
-                        openWeaponGui(p);
-                    }
+                    finishRitual(p, heart);
                 }
             }
         }.runTaskTimer(plugin, 0L, 2L);
+    }
+
+    private void finishRitual(Player p, Location heart) {
+        World world = heart.getWorld();
+        Location apex = heart.clone().add(0, 4.0, 0);
+
+        ShrineManager.flash(world, apex, 3);
+        world.spawnParticle(Particle.TOTEM_OF_UNDYING, apex, 150, 1.0, 1.0, 1.0, 0.5);
+        world.strikeLightningEffect(heart);
+        world.playSound(apex, Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 0.8f);
+        world.playSound(apex, Sound.ENTITY_ENDER_DRAGON_DEATH, 0.4f, 1.4f);
+
+        for (DiscType t : DiscType.values()) {
+            data.setUnclaimed(t);
+            plugin.getShrineManager().updateDisplay(t);
+        }
+        if (data.getGambleOwner() != null) data.setGamble(null, null);
+
+        Bukkit.broadcastMessage(ChatColor.DARK_PURPLE + "♫ The ten discs are no more. "
+                + ChatColor.LIGHT_PURPLE + p.getName()
+                + ChatColor.DARK_PURPLE + " may now claim a weapon of legend. "
+                + ChatColor.GRAY + "The discs may be forged anew at their shrines.");
+
+        data.setMayChooseWeapon(p.getUniqueId(), true);
+        ritualSites.put(p.getUniqueId(), heart);
+        ritualRunning = false;
+        if (p.isOnline()) {
+            p.resetPlayerTime();
+            openWeaponGui(p);
+        }
+    }
+
+    private static double lerp(double a, double b, double t) {
+        return a + (b - a) * t;
     }
 
     // ---- Weapon choice GUI ----
@@ -277,28 +339,76 @@ public class RitualManager implements Listener {
         data.setMayChooseWeapon(p.getUniqueId(), false);
         data.setWeaponTaken(type.name(), p.getName(), name);
 
-        ItemStack weapon = createWeapon(type, name, p.getName());
-        p.getInventory().addItem(weapon).values()
-                .forEach(left -> p.getWorld().dropItemNaturally(p.getLocation(), left));
-
-        p.playSound(p.getLocation(), Sound.ITEM_TRIDENT_THUNDER, 1.0f, 0.8f);
-        p.sendTitle(type.getColor() + "" + ChatColor.BOLD + name,
-                ChatColor.GRAY + "The " + type.getDisplayName() + " of legend", 10, 80, 30);
         Bukkit.broadcastMessage(type.getColor() + "⚔ " + ChatColor.BOLD + p.getName()
                 + ChatColor.RESET + type.getColor() + " has claimed " + ChatColor.BOLD + name
                 + ChatColor.RESET + type.getColor() + ", the " + type.getDisplayName()
                 + " of legend. It is off the table forever.");
+
+        ItemStack weapon = createWeapon(type, name, p.getName());
+        descendFromHeavens(p, type, name, weapon);
+    }
+
+    /** The claimed weapon descends slowly from the sky at the heart of the ritual. */
+    private void descendFromHeavens(Player p, WeaponType type, String name, ItemStack weapon) {
+        Location site = ritualSites.remove(p.getUniqueId());
+        if (site == null || !site.getWorld().equals(p.getWorld())) site = p.getLocation();
+        final Location ground = site.clone();
+        World world = ground.getWorld();
+        Location start = ground.clone().add(0, 25, 0);
+
+        Item item = world.dropItem(start, weapon);
+        item.setGravity(false);
+        item.setVelocity(new Vector(0, 0, 0));
+        item.setPickupDelay(Integer.MAX_VALUE);
+        item.setInvulnerable(true);
+        item.setPersistent(true);
+        item.setGlowing(true);
+        item.setCustomName(type.getColor() + "" + ChatColor.BOLD + name);
+        item.setCustomNameVisible(true);
+
+        world.playSound(ground, Sound.BLOCK_BEACON_ACTIVATE, 1.0f, 1.4f);
+        p.sendTitle(type.getColor() + "" + ChatColor.BOLD + name,
+                ChatColor.GRAY + "descends from the heavens...", 10, 80, 30);
+
+        new BukkitRunnable() {
+            int ticks = 0;
+            @Override
+            public void run() {
+                ticks += 2;
+                if (item.isDead()) {
+                    cancel();
+                    return;
+                }
+                Location pos = item.getLocation();
+                // halo spiraling around the descending weapon
+                double angle = ticks * 0.35;
+                world.spawnParticle(Particle.END_ROD,
+                        pos.clone().add(Math.cos(angle) * 0.8, 0.2, Math.sin(angle) * 0.8),
+                        2, 0, 0, 0, 0);
+                world.spawnParticle(Particle.TOTEM_OF_UNDYING, pos, 2, 0.1, 0.1, 0.1, 0.02);
+                if (pos.getY() > ground.getY() + 1.2) {
+                    item.teleport(pos.subtract(0, 0.35, 0));
+                } else {
+                    cancel();
+                    item.setGravity(true);
+                    item.setPickupDelay(0);
+                    ShrineManager.flash(world, pos, 2);
+                    world.strikeLightningEffect(ground);
+                    world.playSound(pos, Sound.ITEM_TRIDENT_THUNDER, 1.0f, 0.8f);
+                }
+            }
+        }.runTaskTimer(plugin, 20L, 2L);
     }
 
     public ItemStack createWeapon(WeaponType type, String name, String ownerName) {
         ItemStack item = new ItemStack(type.getMaterial());
         ItemMeta meta = item.getItemMeta();
         meta.setDisplayName(type.getColor() + "" + ChatColor.BOLD + name);
-        List<String> lore = new ArrayList<>(Arrays.asList(
+        List<String> lore = new ArrayList<>(List.of(
                 ChatColor.GRAY + "" + ChatColor.ITALIC + "Forged from the ten songs.",
                 ChatColor.DARK_GRAY + "Claimed by " + ownerName,
-                ""));
-        lore.add(ChatColor.GOLD + "Unbreakable. Indestructible.");
+                "",
+                ChatColor.GOLD + "Unbreakable. Indestructible."));
         meta.setLore(lore);
         meta.setUnbreakable(true);
         try {

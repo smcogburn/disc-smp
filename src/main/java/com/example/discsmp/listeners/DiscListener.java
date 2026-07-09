@@ -72,14 +72,25 @@ public class DiscListener implements Listener {
         if (block.getType() == Material.JUKEBOX) {
             if (p.isSneaking()) {
                 event.setCancelled(true);
-                plugin.getRitualManager().tryStartRitual(p, block.getLocation());
+                plugin.getRitualManager().handleSneakClick(p);
                 return;
             }
+            boolean hasRecord = ((Jukebox) block.getBlockData()).hasRecord();
             DiscType inHand = DiscItems.getDiscType(event.getItem());
-            if (inHand != null && !((Jukebox) block.getBlockData()).hasRecord()) {
-                // vanilla inserts the disc; we record the attunement
-                plugin.getRitualManager().onDiscPlayed(p, inHand);
+            if (!hasRecord && inHand != null) {
+                // vanilla inserts the disc; the ritual tracker verifies a tick later
+                plugin.getRitualManager().onDiscInserted(p, inHand, block);
+            } else if (hasRecord) {
+                // ejecting whatever was playing
+                plugin.getRitualManager().onJukeboxDisturbed(block.getLocation());
             }
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onJukeboxBreak(BlockBreakEvent event) {
+        if (event.getBlock().getType() == Material.JUKEBOX) {
+            plugin.getRitualManager().onJukeboxDisturbed(event.getBlock().getLocation());
         }
     }
 

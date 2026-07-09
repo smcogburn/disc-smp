@@ -128,31 +128,6 @@ public class DataStore {
         }
     }
 
-    // ---- Ritual attunement (discs played in a jukebox, per player) ----
-
-    public Set<DiscType> getAttuned(UUID player) {
-        Set<DiscType> set = new HashSet<>();
-        for (String s : yaml.getStringList("attuned." + player)) {
-            DiscType t = DiscType.byId(s);
-            if (t != null) set.add(t);
-        }
-        return set;
-    }
-
-    public boolean addAttuned(UUID player, DiscType type) {
-        List<String> list = yaml.getStringList("attuned." + player);
-        if (list.contains(type.name())) return false;
-        list.add(type.name());
-        yaml.set("attuned." + player, list);
-        save();
-        return true;
-    }
-
-    public void clearAttuned(UUID player) {
-        yaml.set("attuned." + player, null);
-        save();
-    }
-
     // ---- Gambling disc roll (per current owner) ----
 
     public String getGambleEffect() {
