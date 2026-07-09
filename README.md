@@ -18,13 +18,19 @@ Drop `build/libs/disc-smp-1.0.0.jar` into your Paper server's `plugins` folder.
 
 ## Setup (admins)
 
-Each disc needs a shrine — a **sculk catalyst altar** hidden in its structure:
+Each disc needs a shrine — a **themed altar** hidden in its structure:
 
-1. `/discsmp locate all` — auto-finds the nearest matching structure for every disc and plants
-   the shrine there. Placement is at ground level, so **verify each one** and move it inside
-   the structure with:
-2. `/discsmp setshrine <disc>` — sets the shrine at the block you're looking at (places the
-   sculk catalyst for you).
+1. `/discsmp locate all` — finds a matching structure scattered around the map (min ~1,500
+   blocks from spawn) and builds the altar **inside** the structure's generated bounding box
+   (down in the mineshaft, inside the bastion, etc.). Verify each spot and adjust if desired:
+2. `/discsmp setshrine <disc>` — rebuilds the altar at the block you're looking at.
+
+Each altar is a small indestructible structure themed to its disc (blackstone + gilded
+blackstone for the Bastion, prismarine for the Monument, ...) with a floating label that says
+to right-click. Right-clicking any altar block opens the offering GUI: the four required
+materials, live green/red status for what you're carrying, and a forge button. Materials are
+consumed straight from your inventory — nothing is stored in the altar, so nothing can be
+stolen. The disc lands directly in your inventory (or drops at your feet if it's full).
 
 Other admin commands: `/discsmp status`, `give <disc> [player]`, `reset <disc>`,
 `reroll [player]`, `recipe <disc>`. Players can run `/discs` to see the state of the hunt.
@@ -51,8 +57,9 @@ How they work:
 - **Only one of each exists.** Approaching an unclaimed shrine triggers an omen — the world
   darkens, the shrine names itself, and the offering recipe is revealed (once per player;
   `/discsmp recipe` shows it again).
-- Bring the materials and **right-click the sculk catalyst** to forge the disc: lightning,
-  soulfire, the song plays, a challenge toast pops, and the server is told.
+- Bring the materials and **right-click the altar** to forge the disc: lightning, soulfire,
+  a challenge toast pops, the server is told — and the disc's song plays for **everyone
+  online**, like the dragon's death cry.
 - **Whoever holds it, has it.** If a disc burns, blows up, despawns, or falls into the void,
   it returns to its shrine and can be forged again (server-wide announcement).
 - Discs **cannot be stored in ender chests**.

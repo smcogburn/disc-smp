@@ -62,6 +62,17 @@ public class DataStore {
         return new Location(world, yaml.getInt(p + ".x"), yaml.getInt(p + ".y"), yaml.getInt(p + ".z"));
     }
 
+    /** UUID of the floating TextDisplay above a shrine's altar. */
+    public UUID getShrineDisplay(DiscType type) {
+        String s = yaml.getString("shrines." + type.name() + ".display");
+        return s == null ? null : UUID.fromString(s);
+    }
+
+    public void setShrineDisplay(DiscType type, UUID id) {
+        yaml.set("shrines." + type.name() + ".display", id == null ? null : id.toString());
+        save();
+    }
+
     // ---- Disc ownership / existence ----
 
     /** True if the disc currently exists in the world (has been crafted and not destroyed). */

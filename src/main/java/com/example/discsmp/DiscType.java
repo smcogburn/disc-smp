@@ -86,7 +86,7 @@ public enum DiscType {
             "It remembers every pickaxe swing ever taken.",
             "Haste III while held",
             recipe(Material.IRON_BLOCK, 16, Material.GOLD_BLOCK, 8,
-                    Material.DIAMOND_BLOCK 6, Material.REDSTONE_BLOCK, 16),
+                    Material.DIAMOND_BLOCK, 6, Material.REDSTONE_BLOCK, 16),
             effects(effect(PotionEffectType.HASTE, 2))),
 
     PHANTOM(9, "Phantom", "Tears", ChatColor.DARK_AQUA,

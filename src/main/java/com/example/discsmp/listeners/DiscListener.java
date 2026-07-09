@@ -5,6 +5,7 @@ import com.example.discsmp.DiscItems;
 import com.example.discsmp.DiscSMPPlugin;
 import com.example.discsmp.DiscType;
 import com.example.discsmp.managers.RitualManager;
+import com.example.discsmp.managers.ShrineManager;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
@@ -17,7 +18,13 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockBurnEvent;
+import org.bukkit.event.block.BlockExplodeEvent;
+import org.bukkit.event.block.BlockPistonExtendEvent;
+import org.bukkit.event.block.BlockPistonRetractEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.entity.ItemDespawnEvent;
 import org.bukkit.event.entity.ItemSpawnEvent;
@@ -55,10 +62,10 @@ public class DiscListener implements Listener {
         if (block == null) return;
         Player p = event.getPlayer();
 
-        if (block.getType() == Material.SCULK_CATALYST) {
-            if (plugin.getShrineManager().handleAltarClick(p, block.getLocation())) {
-                event.setCancelled(true);
-            }
+        DiscType altar = plugin.getShrineManager().altarAt(block.getLocation());
+        if (altar != null) {
+            event.setCancelled(true);
+            plugin.getShrineManager().openAltarGui(p, altar);
             return;
         }
 
@@ -72,6 +79,75 @@ public class DiscListener implements Listener {
             if (inHand != null && !((Jukebox) block.getBlockData()).hasRecord()) {
                 // vanilla inserts the disc; we record the attunement
                 plugin.getRitualManager().onDiscPlayed(p, inHand);
+            }
+        }
+    }
+
+    // ---- Altar GUI: display-only, plus the forge button ----
+
+    @EventHandler
+    public void onAltarGuiClick(InventoryClickEvent event) {
+        if (!(event.getView().getTopInventory().getHolder()
+                instanceof ShrineManager.AltarHolder holder)) return;
+        event.setCancelled(true); // nothing can be put in or taken out
+        if (!(event.getWhoClicked() instanceof Player p)) return;
+        if (event.getClickedInventory() == event.getView().getTopInventory()
+                && event.getSlot() == ShrineManager.FORGE_SLOT) {
+            plugin.getShrineManager().tryForge(p, holder.type);
+        }
+    }
+
+    @EventHandler
+    public void onAltarGuiDrag(InventoryDragEvent event) {
+        if (event.getView().getTopInventory().getHolder() instanceof ShrineManager.AltarHolder) {
+            event.setCancelled(true);
+        }
+    }
+
+    // ---- Altars are indestructible ----
+
+    @EventHandler(ignoreCancelled = true)
+    public void onAltarBreak(BlockBreakEvent event) {
+        if (plugin.getShrineManager().altarAt(event.getBlock().getLocation()) != null) {
+            event.setCancelled(true);
+            event.getPlayer().sendMessage(ChatColor.DARK_GRAY
+                    + "The altar does not yield to mortal tools.");
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onAltarExplode(EntityExplodeEvent event) {
+        event.blockList().removeIf(b -> plugin.getShrineManager().altarAt(b.getLocation()) != null);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onAltarBlockExplode(BlockExplodeEvent event) {
+        event.blockList().removeIf(b -> plugin.getShrineManager().altarAt(b.getLocation()) != null);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onAltarBurn(BlockBurnEvent event) {
+        if (plugin.getShrineManager().altarAt(event.getBlock().getLocation()) != null) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onAltarPistonExtend(BlockPistonExtendEvent event) {
+        for (Block b : event.getBlocks()) {
+            if (plugin.getShrineManager().altarAt(b.getLocation()) != null) {
+                event.setCancelled(true);
+                return;
+            }
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onAltarPistonRetract(BlockPistonRetractEvent event) {
+        for (Block b : event.getBlocks()) {
+            if (plugin.getShrineManager().altarAt(b.getLocation()) != null) {
+                event.setCancelled(true);
+                return;
             }
         }
     }
@@ -184,6 +260,7 @@ public class DiscListener implements Listener {
         if (!data.isClaimed(type)) return;
         data.setUnclaimed(type);
         if (type == DiscType.GAMBLING) data.setGamble(null, null);
+        plugin.getShrineManager().updateDisplay(type);
         Bukkit.broadcastMessage(type.getColor() + "♫ " + type.getDisplayName() + type.getColor()
                 + " " + fate + "! " + ChatColor.GRAY
                 + "It has returned to its shrine in " + type.getStructureName()

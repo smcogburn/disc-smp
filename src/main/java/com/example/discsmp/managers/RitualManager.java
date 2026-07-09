@@ -112,6 +112,7 @@ public class RitualManager implements Listener {
         }
         for (DiscType t : DiscType.values()) {
             data.setUnclaimed(t);
+            plugin.getShrineManager().updateDisplay(t);
         }
         if (data.getGambleOwner() != null) data.setGamble(null, null);
         data.clearAttuned(p.getUniqueId());

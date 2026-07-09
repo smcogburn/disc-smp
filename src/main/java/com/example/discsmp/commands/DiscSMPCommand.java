@@ -101,6 +101,7 @@ public class DiscSMPCommand implements TabExecutor {
                 plugin.getDataStore().setClaimed(t, target.getUniqueId(), target.getName());
                 target.getInventory().addItem(DiscItems.create(t));
                 plugin.getAbilityManager().onDiscAcquired(target, t);
+                plugin.getShrineManager().updateDisplay(t);
                 sender.sendMessage(ChatColor.GREEN + "Gave the " + t.getTheme() + " to " + target.getName() + ".");
                 return true;
             }
@@ -109,6 +110,7 @@ public class DiscSMPCommand implements TabExecutor {
                 if (t == null) return true;
                 plugin.getDataStore().setUnclaimed(t);
                 if (t == DiscType.GAMBLING) plugin.getDataStore().setGamble(null, null);
+                plugin.getShrineManager().updateDisplay(t);
                 sender.sendMessage(ChatColor.GREEN + "The " + t.getTheme()
                         + " is unclaimed again and can be forged at its shrine.");
                 return true;
