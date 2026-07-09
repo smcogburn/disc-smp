@@ -48,10 +48,3 @@ No netherite tools/weapons (except pickaxe)
 Limit of 5 maces in the world
 No x-ray, no cheats, no chunk banning, no lag machines, etc. (this doesnt need code this is just a rule)
 
-The server itself
-Our custom plugin for the disc SMP
-Geyser mod - crossplay w bedrock
-Simple voice chat
-
-Hosting
-Apex hosting - $15 a month

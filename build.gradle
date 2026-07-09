@@ -3,12 +3,12 @@ plugins {
 }
 
 group = 'com.example'
-version = '0.1.0'
-description = 'DiscSMP minimal plugin'
+version = '1.0.0'
+description = 'Disc SMP - 10 unique discs, shrine crafting, ritual weapons'
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(17)
+        languageVersion = JavaLanguageVersion.of(21)
     }
 }
 
@@ -18,7 +18,7 @@ repositories {
 }
 
 dependencies {
-    compileOnly 'io.papermc.paper:paper-api:1.20.2-R0.1-SNAPSHOT'
+    compileOnly 'io.papermc.paper:paper-api:1.21.8-R0.1-SNAPSHOT'
 }
 
 tasks.withType(JavaCompile) {
