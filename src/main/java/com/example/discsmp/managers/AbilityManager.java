@@ -43,6 +43,7 @@ public class AbilityManager {
 
     private final DiscSMPPlugin plugin;
     private final DataStore data;
+    private final TeamManager teams;
     private final Random random = new Random();
     /** Players mid-dice-roll; the gamble power is suspended until the roll lands. */
     private final Set<UUID> rolling = new HashSet<>();
@@ -54,26 +55,47 @@ public class AbilityManager {
     private static final EquipmentSlot[] ARMOR_SLOTS = {
             EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET};
 
-    public AbilityManager(DiscSMPPlugin plugin, DataStore data) {
+    public AbilityManager(DiscSMPPlugin plugin, DataStore data, TeamManager teams) {
         this.plugin = plugin;
         this.data = data;
+        this.teams = teams;
     }
 
     /** Runs every 2 seconds. */
     public void tick() {
+        // Snapshot what each online player physically carries, so teammates can share.
+        Map<UUID, Set<DiscType>> carried = new HashMap<>();
         for (Player p : Bukkit.getOnlinePlayers()) {
-            Set<DiscType> discs = discsInInventory(p);
-            Map<PotionEffectType, Integer> desired = new HashMap<>();
+            carried.put(p.getUniqueId(), discsInInventory(p));
+        }
 
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            Set<DiscType> own = carried.get(p.getUniqueId());
+            // Effective discs = what you carry + what every online teammate carries.
+            Set<DiscType> discs = EnumSet.noneOf(DiscType.class);
+            discs.addAll(own);
+            for (Player mate : teams.onlineTeammates(p.getUniqueId())) {
+                Set<DiscType> mateDiscs = carried.get(mate.getUniqueId());
+                if (mateDiscs != null) discs.addAll(mateDiscs);
+            }
+
+            Map<PotionEffectType, Integer> desired = new HashMap<>();
             for (DiscType type : discs) {
                 for (PotionEffect effect : type.getHeldEffects()) {
                     desired.merge(effect.getType(), effect.getAmplifier(), Math::max);
                 }
-                if (type == DiscType.PAIN) applyPainAura(p);
-                if (type == DiscType.GAMBLING) addGambleEffect(p, desired);
                 if (type == DiscType.PHANTOM && invisPhaseOn()) {
                     desired.merge(PotionEffectType.INVISIBILITY, 0, Math::max);
                 }
+            }
+            // Pain projects only from the player physically holding it (one disc, one source),
+            // but every teammate's aura now spares the rest of the team.
+            if (own.contains(DiscType.PAIN)) applyPainAura(p);
+            // Gambling: the carrier rolls and owns the effect; teammates just borrow the result.
+            if (own.contains(DiscType.GAMBLING)) {
+                addGambleEffect(p, desired);
+            } else if (discs.contains(DiscType.GAMBLING)) {
+                addSharedGambleEffect(desired);
             }
 
             // apply/refresh what the discs grant, silently (no icon, no particles)
@@ -134,10 +156,20 @@ public class AbilityManager {
     private void applyPainAura(Player holder) {
         for (Entity e : holder.getNearbyEntities(PAIN_AURA_RADIUS, PAIN_AURA_RADIUS, PAIN_AURA_RADIUS)) {
             if (!(e instanceof LivingEntity living)) continue;
+            // teammates are friends - the curse passes them by
+            if (e instanceof Player other && teams.sameTeam(holder.getUniqueId(), other.getUniqueId())) {
+                continue;
+            }
             for (PotionEffect effect : DiscType.PAIN_AURA) {
                 living.addPotionEffect(effect);
             }
         }
+    }
+
+    /** A teammate carries the Gambling disc: borrow its current roll without rerolling. */
+    private void addSharedGambleEffect(Map<PotionEffectType, Integer> desired) {
+        PotionEffectType type = resolveEffect(data.getGambleEffect());
+        if (type != null) desired.merge(type, 4, Math::max);
     }
 
     private void addGambleEffect(Player p, Map<PotionEffectType, Integer> desired) {

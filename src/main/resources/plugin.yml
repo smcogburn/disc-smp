@@ -11,6 +11,9 @@ commands:
   discs:
     description: Show the status of the ten discs
     usage: /discs
+  team:
+    description: Create and manage your disc-sharing team
+    usage: /team <create|invite|accept|leave|kick|rename|glow|disband|list>
 permissions:
   discsmp.admin:
     description: Disc SMP admin tools

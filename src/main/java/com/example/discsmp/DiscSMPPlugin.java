@@ -2,11 +2,13 @@ package com.example.discsmp;
 
 import com.example.discsmp.commands.DiscSMPCommand;
 import com.example.discsmp.commands.DiscsCommand;
+import com.example.discsmp.commands.TeamCommand;
 import com.example.discsmp.listeners.DiscListener;
 import com.example.discsmp.listeners.RulesListener;
 import com.example.discsmp.managers.AbilityManager;
 import com.example.discsmp.managers.RitualManager;
 import com.example.discsmp.managers.ShrineManager;
+import com.example.discsmp.managers.TeamManager;
 import org.bukkit.World;
 import org.bukkit.WorldBorder;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -17,6 +19,7 @@ public final class DiscSMPPlugin extends JavaPlugin {
 
     private DataStore dataStore;
     private ShrineManager shrineManager;
+    private TeamManager teamManager;
     private AbilityManager abilityManager;
     private RitualManager ritualManager;
     private RulesListener rulesListener;
@@ -26,7 +29,8 @@ public final class DiscSMPPlugin extends JavaPlugin {
         DiscItems.init(this);
         dataStore = new DataStore(this);
         shrineManager = new ShrineManager(this, dataStore);
-        abilityManager = new AbilityManager(this, dataStore);
+        teamManager = new TeamManager(dataStore);
+        abilityManager = new AbilityManager(this, dataStore, teamManager);
         ritualManager = new RitualManager(this, dataStore);
         rulesListener = new RulesListener(this);
 
@@ -38,10 +42,14 @@ public final class DiscSMPPlugin extends JavaPlugin {
         getCommand("discsmp").setExecutor(admin);
         getCommand("discsmp").setTabCompleter(admin);
         getCommand("discs").setExecutor(new DiscsCommand(this));
+        TeamCommand team = new TeamCommand(this);
+        getCommand("team").setExecutor(team);
+        getCommand("team").setTabCompleter(team);
 
-        // held-disc powers + netherite armor safety net, every 2s
+        // held-disc powers (shared across teams) + team glow + netherite armor safety net, every 2s
         getServer().getScheduler().runTaskTimer(this, () -> {
             abilityManager.tick();
+            teamManager.tickGlow();
             rulesListener.sweepNetheriteArmor();
         }, 40L, 40L);
         // shrine omens, every 3s
@@ -75,6 +83,7 @@ public final class DiscSMPPlugin extends JavaPlugin {
 
     public DataStore getDataStore() { return dataStore; }
     public ShrineManager getShrineManager() { return shrineManager; }
+    public TeamManager getTeamManager() { return teamManager; }
     public AbilityManager getAbilityManager() { return abilityManager; }
     public RitualManager getRitualManager() { return ritualManager; }
 }

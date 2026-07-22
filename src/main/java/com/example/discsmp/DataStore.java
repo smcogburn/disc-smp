@@ -8,6 +8,8 @@ import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -198,6 +200,111 @@ public class DataStore {
     public void markBorderSet() {
         yaml.set("borderSet", true);
         save();
+    }
+
+    // ---- Teams ----
+    // Stored as: teams.<id>.{name, leader, glow, members[], names.<uuid>}
+    // and a reverse index playerTeam.<uuid> = <id>.
+
+    public Set<String> getAllTeamIds() {
+        ConfigurationSection section = yaml.getConfigurationSection("teams");
+        return section == null ? Collections.emptySet() : new HashSet<>(section.getKeys(false));
+    }
+
+    public void createTeam(String teamId, String name, UUID leader, String leaderName) {
+        String p = "teams." + teamId;
+        yaml.set(p + ".name", name);
+        yaml.set(p + ".leader", leader.toString());
+        yaml.set(p + ".glow", true);
+        yaml.set(p + ".members", new ArrayList<>(List.of(leader.toString())));
+        yaml.set(p + ".names." + leader, leaderName);
+        yaml.set("playerTeam." + leader, teamId);
+        save();
+    }
+
+    public void deleteTeam(String teamId) {
+        for (UUID member : getTeamMembers(teamId)) {
+            yaml.set("playerTeam." + member, null);
+        }
+        yaml.set("teams." + teamId, null);
+        save();
+    }
+
+    public boolean teamExists(String teamId) {
+        return teamId != null && yaml.contains("teams." + teamId);
+    }
+
+    public String getTeamName(String teamId) {
+        return yaml.getString("teams." + teamId + ".name");
+    }
+
+    public void setTeamName(String teamId, String name) {
+        yaml.set("teams." + teamId + ".name", name);
+        save();
+    }
+
+    public UUID getTeamLeader(String teamId) {
+        String s = yaml.getString("teams." + teamId + ".leader");
+        return s == null ? null : UUID.fromString(s);
+    }
+
+    public void setTeamLeader(String teamId, UUID leader) {
+        yaml.set("teams." + teamId + ".leader", leader.toString());
+        save();
+    }
+
+    public boolean isTeamGlow(String teamId) {
+        return yaml.getBoolean("teams." + teamId + ".glow", true);
+    }
+
+    public void setTeamGlow(String teamId, boolean glow) {
+        yaml.set("teams." + teamId + ".glow", glow);
+        save();
+    }
+
+    public List<UUID> getTeamMembers(String teamId) {
+        List<UUID> out = new ArrayList<>();
+        for (String s : yaml.getStringList("teams." + teamId + ".members")) {
+            out.add(UUID.fromString(s));
+        }
+        return out;
+    }
+
+    public void addMember(String teamId, UUID member, String name) {
+        List<String> members = yaml.getStringList("teams." + teamId + ".members");
+        if (!members.contains(member.toString())) members.add(member.toString());
+        yaml.set("teams." + teamId + ".members", members);
+        yaml.set("teams." + teamId + ".names." + member, name);
+        yaml.set("playerTeam." + member, teamId);
+        save();
+    }
+
+    public void removeMember(String teamId, UUID member) {
+        List<String> members = yaml.getStringList("teams." + teamId + ".members");
+        members.remove(member.toString());
+        yaml.set("teams." + teamId + ".members", members);
+        yaml.set("teams." + teamId + ".names." + member, null);
+        yaml.set("playerTeam." + member, null);
+        save();
+    }
+
+    public String getMemberName(String teamId, UUID member) {
+        String name = yaml.getString("teams." + teamId + ".names." + member);
+        return name == null ? "unknown" : name;
+    }
+
+    public String getPlayerTeam(UUID player) {
+        String id = yaml.getString("playerTeam." + player);
+        // guard against a dangling index if the team was removed out from under it
+        return teamExists(id) ? id : null;
+    }
+
+    /** Case-insensitive lookup of a team by its display name; null if none. */
+    public String findTeamByName(String name) {
+        for (String id : getAllTeamIds()) {
+            if (name.equalsIgnoreCase(getTeamName(id))) return id;
+        }
+        return null;
     }
 
     ConfigurationSection raw() {
